@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta charset="UTF-8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<!-- Custom Home Screen icon — see note in chat about image requirements
+     and the need to re-add to Home Screen once this is uploaded. -->
+<link rel="apple-touch-icon" href="vicroads.png">
+<title>View details</title>
+<style>
+
+    @font-face {
+    font-family: "SatoshiBold";
+    src: url("./Satoshi-Bold.otf") format("opentype");
+
+         @font-face {
+    font-family: "LeagueSpartan";
+    src: url("./LeagueSpartan-VariableFont_wght.ttf") format("truetype");
+    font-weight: 100 900;
+    font-style: normal;
+}
+}
+/* ===== Shared reset ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+a, a:focus, a:active, a:hover {
+    outline: none;
+    background-color: transparent;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+}
+html, body {
+    touch-action: pan-x pan-y;
+}
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ===== Screen switcher ===== */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* Fixed white bar painted over the notch/Dynamic Island area. Sits above
+   everything but is NOT part of page flow, so it can't shift any existing
+   header height or button position. */
+.status-bar-fill {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: env(safe-area-inset-top);
+    background: #FFFFFF; /* TEMP diagnostic color — will be set back to white */
+    z-index: 9999;
+    pointer-events: none;
+}
+
+/* Lightweight fade used when switching into permit/identity/age/verify */
+.screen.entering {
+    position: relative;
+    z-index: 2;
+    animation: screenFadeIn 0.28s cubic-bezier(.2,.8,.2,1);
+}
+.screen.leaving {
+    display: block;
+    pointer-events: none;
+    animation: screenFadeOut 0.28s cubic-bezier(.2,.8,.2,1) forwards;
+}
+@keyframes screenFadeIn {
+    from { opacity: 0; filter: saturate(.96); }
+    to { opacity: 1; filter: saturate(1); }
+}
+@keyframes screenFadeOut {
+    from { opacity: 1; filter: saturate(1); }
+    to { opacity: 0; filter: saturate(.96); }
+}
+
+/* Locks scroll while the landing screen OR the verify screen is active */
+body.lock-scroll, html.lock-scroll {
+    overflow: hidden;
+    height: 100%;
+    position: fixed;
+    width: 100%;
+    overscroll-behavior: none;
+    touch-action: none;
+}
+
+/* ===== #screen-passcode (new front gate) ===== */
+#screen-passcode {
+    background: #ffffff;
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+#screen-passcode .pc-wrap {
+    max-width: 420px;
+    margin: 0 auto;
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: calc(20px + env(safe-area-inset-top)) 32px calc(20px + env(safe-area-inset-bottom));
+    overflow: hidden;
+}
+#screen-passcode .pc-lock-wrap {
+    margin-top: auto;
+    margin-bottom: 32px;
+    flex-shrink: 0;
+}
+#screen-passcode .pc-lock-icon {
+    width: 100px;
+    height: 100px;
+}
+#screen-passcode .pc-title {
+    font-family: "LeagueSpartan", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    color: #111;
+    text-align: center;
+    margin: 0 0 32px;
+    line-height: 1.25;
+    flex-shrink: 0;
+}
+#screen-passcode .pc-dots {
+    display: flex;
+    gap: 20px;
+    margin-bottom: auto;
+    flex-shrink: 0;
+}
+#screen-passcode .pc-dot {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid #111;
+    background: transparent;
+    transition: background-color 120ms ease;
+}
+#screen-passcode .pc-dot.filled {
+    background: #111;
+}
+#screen-passcode .pc-keypad-area {
+    width: 100%;
+    flex-shrink: 0;
+}
+#screen-passcode .pc-keypad {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    row-gap: 34px;
+    column-gap: 10px;
+}
+#screen-passcode .pc-key {
+    background: none;
+    border: none;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 30px;
+    font-weight: 700;
+    color: #111;
+    padding: 14px 0;
+    cursor: pointer;
+    border-radius: 12px;
+    transition: opacity 120ms ease;
+    -webkit-user-select: none;
+    user-select: none;
+       -webkit-tap-highlight-color: transparent;
+    outline: none;
+}
+#screen-passcode .pc-key:active,
+#screen-passcode .pc-key.pressed {
+    opacity: 0.25;
+}
+#screen-passcode .pc-key.pc-text-key {
+    font-size: 17px;
+    font-weight: 600;
+}
+#screen-passcode .pc-key.pc-icon-key {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#screen-passcode .pc-key.pc-icon-key svg {
+    width: 26px;
+    height: 26px;
+}
+#screen-passcode .pc-key:disabled {
+    opacity: 0.2;
+    cursor: default;
+}
+
+/* ===== #screen-landing (was index.html) ===== */
+#screen-landing .image-container {
+    width: 100%;
+    height: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    position: relative;
+    display: block;
+    overflow: hidden;
+    background-color: #eef2f3;
+}
+#screen-landing .image-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+    display: block;
+}
+#screen-landing .invisible-button {
+    position: absolute;
+    bottom: 11.3%;
+    left: 6%;
+    width: 88%;
+    height: 12%;
+    cursor: pointer;
+    z-index: 10;
+    text-decoration: none;
+}
+
+/* ===== #screen-permit (was main1.html) ===== */
+#screen-permit .header {
+    position: sticky;
+    top: 0; left: 0; right: 0;
+    background-color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 100;
+    padding: 18px 0;
+}
+#screen-permit .back-arrow {
+    position: absolute;
+    left: 20px;
+    color: #283442;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+}
+#screen-permit .back-arrow svg { width: 24px; height: 24px; }
+#screen-permit .header-title {
+     font-family: "LeagueSpartan", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: #283442;
+    text-align: center;
+}
+#screen-permit .content {
+    display: flex;
+    flex-direction: column;
+    background-color: white;
+}
+#screen-permit .image-container { width: 100%; position: relative; display: block; }
+#screen-permit .image-container img { width: 100%; height: auto; display: block; }
+#screen-permit .invisible-button {
+    position: absolute;
+    cursor: pointer;
+    z-index: 50;
+    text-decoration: none;
+    border-radius: 50px;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    outline: none;
+    background: transparent;
+}
+#screen-permit .btn-permit   { left: 7%;    top: 48%; width: 26%;   height: 4.5%; }
+#screen-permit .btn-identity { left: 37%;   top: 48%; width: 26%;   height: 4.5%; }
+#screen-permit .btn-age      { left: 67.7%; top: 48%; width: 26.3%; height: 4.5%; }
+#screen-permit .btn-new      { left: 58.5%; top: 33.5%; width: 30%; height: 4.5%; }
+
+/* ===== #screen-identity / #screen-age (was page2.html / page3.html) ===== */
+#screen-identity .header, #screen-age .header {
+    position: sticky;
+    top: 0; left: 0; right: 0;
+    background-color: white;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 100;
+}
+#screen-identity .back-arrow, #screen-age .back-arrow {
+    position: absolute;
+    left: 20px;
+    color: #283442;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+}
+#screen-identity .back-arrow svg, #screen-age .back-arrow svg { width: 24px; height: 24px; }
+#screen-identity .header-title, #screen-age .header-title {
+    color: #283442;
+  font-family: "LeagueSpartan", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 18px;
+    font-weight: 500;
+}
+#screen-identity .content, #screen-age .content { display: flex; flex-direction: column; }
+#screen-identity .image-container, #screen-age .image-container { width: 100%; display: block; position: relative; }
+#screen-identity .image-container img, #screen-age .image-container img { width: 100%; height: auto; display: block; }
+#screen-identity .invisible-button, #screen-age .invisible-button {
+    position: absolute;
+    cursor: pointer;
+    z-index: 50;
+    text-decoration: none;
+    border-radius: 50px;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    outline: none;
+    background: transparent;
+}
+#screen-identity .btn-permit,   #screen-age .btn-permit   { left: 6.4%; top: 48%; width: 28%; height: 4.6%; }
+#screen-identity .btn-identity, #screen-age .btn-identity { left: 36%;  top: 48%; width: 28%; height: 4.6%; }
+#screen-identity .btn-age,      #screen-age .btn-age      { left: 66%;  top: 48%; width: 28%; height: 4.6%; }
+#screen-identity .btn-new,      #screen-age .btn-new      { left: 58.5%; top: 33.5%; width: 30%; height: 4.5%; }
+
+/* ===== #screen-verify (was page4.html) ===== */
+#screen-verify .page-wrapper {
+    width: 100%;
+    height: 100%;
+    transform: translateY(100%);
+}
+#screen-verify .page-wrapper.slide-up {
+    animation: slideUp 0.45s ease forwards;
+}
+@keyframes slideUp { to { transform: translateY(0); } }
+#screen-verify .header {
+    width: 100%;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 15px 0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+    position: relative;
+    z-index: 100;
+}
+#screen-verify .header-title { font-size: 18px; font-weight: 500; color: #3a3a3a; }
+#screen-verify .back-arrow {
+       font-family: "LeagueSpartan", -apple-system, BlinkMacSystemFont, sans-serif;
+    position: absolute;
+    right: 20px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    color: #2a2a2a;
+}
+#screen-verify .timer {
+    position: absolute;
+    top: 430px;
+    left: 64%;
+    transform: translateX(-50%);
+    font-size: 24px;
+    font-weight: 700;
+    color: #1f2025;
+    z-index: 50;
+}
+#screen-verify .content {
+    width: 100%;
+    height: calc(100% - 60px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: white;
+}
+#screen-verify .image-container { width: 100vw; position: relative; }
+#screen-verify .image-container img { width: 100vw; height: auto; display: block; }
+#screen-verify .invisible-button { position: absolute; cursor: pointer; text-decoration: none; z-index: 50; }
+#screen-verify .btn-permit   { left: 7%;    top: 48%; width: 26%;   height: 4.5%; }
+#screen-verify .btn-identity { left: 37%;   top: 48%; width: 26%;   height: 4.5%; }
+#screen-verify .btn-age      { left: 67.7%; top: 48%; width: 26.3%; height: 4.5%; }
+
+/* ===== Floating segmented-control overlay ===== */
+.segmented-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    z-index: 60;
+    pointer-events: none;
+    opacity: 0;
+}
+.segmented-overlay.is-ready { opacity: 1; }
+.indicator-mask {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--indicator-width, 0px);
+    height: var(--indicator-height, 0px);
+    border-radius: 999px;
+    background: #253544;
+    transform: translate3d(var(--indicator-x, 0px), var(--indicator-y, 0px), 0);
+    transition:
+        transform 330ms cubic-bezier(.2,.8,.2,1),
+        width 330ms cubic-bezier(.2,.8,.2,1),
+        height 330ms cubic-bezier(.2,.8,.2,1);
+    will-change: transform, width, height;
+}
+.indicator-pill {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: inherit;
+    background: #253544;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.16);
+    overflow: hidden;
+}
+.indicator-label {
+     font-family: 'SatoshiBold', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #fff;
+    font-size: var(--indicator-font-size, 14px);
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    text-align: center;
+}
+.segmented-overlay.is-instant .indicator-mask {
+    transition: none;
+}
+</style>
+</head>
+<body class="lock-scroll">
+
+<div class="status-bar-fill"></div>
+
+<div id="app">
+
+  <!-- ===== screen-passcode (new front gate, shown first) ===== -->
+  <div class="screen active" id="screen-passcode">
+    <div class="pc-wrap">
+      <div class="pc-lock-wrap">
+        <svg class="pc-lock-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Locked padlock">
+          <path d="M32 42 V32 a18 18 0 0 1 36 0 v10" fill="none" stroke="#3DBE3D" stroke-width="9" stroke-linecap="round"/>
+          <rect x="18" y="40" width="64" height="46" rx="6" fill="#3DBE3D"/>
+          <circle cx="50" cy="60" r="7" fill="#1E2A38"/>
+          <path d="M46 65 L42 78 H58 L54 65 Z" fill="#1E2A38"/>
+        </svg>
+      </div>
+
+      <p class="pc-title">Please enter your existing PIN code</p>
+
+      <div class="pc-dots" id="pc-dots">
+        <span class="pc-dot" data-index="0"></span>
+        <span class="pc-dot" data-index="1"></span>
+        <span class="pc-dot" data-index="2"></span>
+        <span class="pc-dot" data-index="3"></span>
+        <span class="pc-dot" data-index="4"></span>
+        <span class="pc-dot" data-index="5"></span>
+      </div>
+
+      <div class="pc-keypad-area">
+        <div class="pc-keypad">
+          <button class="pc-key" data-pc-num="1">1</button>
+          <button class="pc-key" data-pc-num="2">2</button>
+          <button class="pc-key" data-pc-num="3">3</button>
+          <button class="pc-key" data-pc-num="4">4</button>
+          <button class="pc-key" data-pc-num="5">5</button>
+          <button class="pc-key" data-pc-num="6">6</button>
+          <button class="pc-key" data-pc-num="7">7</button>
+          <button class="pc-key" data-pc-num="8">8</button>
+          <button class="pc-key" data-pc-num="9">9</button>
+          <button class="pc-key pc-text-key" id="pc-forgot-btn">Forgot?</button>
+          <button class="pc-key" data-pc-num="0">0</button>
+          <button class="pc-key pc-icon-key" id="pc-backspace-btn" aria-label="Delete">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 6 L3 12 L9 18 H20 a1 1 0 0 0 1 -1 V7 a1 1 0 0 0 -1 -1 H9 Z"/>
+              <line x1="12.5" y1="9.5" x2="17.5" y2="14.5"/>
+              <line x1="17.5" y1="9.5" x2="12.5" y2="14.5"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== screen-landing (was index.html) ===== -->
+  <div class="screen" id="screen-landing">
+    <div class="image-container">
+        <img src="morganhp.png" alt="">
+        <a href="#" class="invisible-button" data-enter="permit"></a>
+    </div>
+  </div>
+
+  <!-- ===== screen-permit (was main1.html) ===== -->
+  <div class="screen" id="screen-permit">
+    <div class="header">
+        <div class="back-arrow" data-back>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+        </div>
+        <div class="header-title">View details</div>
+    </div>
+    <div class="content">
+        <div class="image-container">
+            <img src="morgan1.png" alt="">
+            <a href="#" class="invisible-button btn-permit"   data-target="permit"></a>
+            <a href="#" class="invisible-button btn-identity" data-target="identity"></a>
+            <a href="#" class="invisible-button btn-age"      data-target="age"></a>
+            <a href="#" class="invisible-button btn-new"      data-target="verify"></a>
+        </div>
+        <div class="image-container">
+            <img src="morgan4.png" alt="">
+        </div>
+    </div>
+  </div>
+
+  <!-- ===== screen-identity (was page2.html) ===== -->
+  <div class="screen" id="screen-identity">
+    <div class="header">
+        <div class="back-arrow" data-back>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+        </div>
+        <div class="header-title">View details</div>
+    </div>
+    <div class="content">
+        <div class="image-container">
+            <img src="morgan2.png" alt="">
+            <a href="#" class="invisible-button btn-permit"   data-target="permit"></a>
+            <a href="#" class="invisible-button btn-identity" data-target="identity"></a>
+            <a href="#" class="invisible-button btn-age"      data-target="age"></a>
+            <a href="#" class="invisible-button btn-new"      data-target="verify"></a>
+        </div>
+    </div>
+  </div>
+
+  <!-- ===== screen-age (was page3.html) ===== -->
+  <div class="screen" id="screen-age">
+    <div class="header">
+        <div class="back-arrow" data-back>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+        </div>
+        <div class="header-title">View details</div>
+    </div>
+    <div class="content">
+        <div class="image-container">
+            <img src="morgan3.png" alt="">
+            <a href="#" class="invisible-button btn-permit"   data-target="permit"></a>
+            <a href="#" class="invisible-button btn-identity" data-target="identity"></a>
+            <a href="#" class="invisible-button btn-age"      data-target="age"></a>
+            <a href="#" class="invisible-button btn-new"      data-target="verify"></a>
+        </div>
+    </div>
+  </div>
+
+  <!-- ===== screen-verify (was page4.html) ===== -->
+  <div class="screen" id="screen-verify">
+    <div class="page-wrapper">
+      <div class="header">
+        <div class="header-title">Verify Licence</div>
+        <div class="back-arrow" data-close>Close</div>
+      </div>
+      <div class="timer" data-timer>02:00</div>
+      <div class="content">
+        <div class="image-container">
+          <img src="idqr.png" alt="">
+          <a href="#" class="invisible-button btn-permit"   data-target="permit"></a>
+          <a href="#" class="invisible-button btn-identity" data-target="identity"></a>
+          <a href="#" class="invisible-button btn-age"      data-target="age"></a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="segmented-overlay" aria-hidden="true">
+    <div class="indicator-mask">
+        <div class="indicator-pill">
+            <span class="indicator-label">Permit</span>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var app = document.getElementById('app');
+    var verifyTimerInterval = null;
+    var segmentedOverlay = document.querySelector('.segmented-overlay');
+    var indicatorLabel = segmentedOverlay.querySelector('.indicator-label');
+    var indicatorTarget = 'permit';
+    var indicatorFrame = null;
+    var indicatorLabels = {
+        permit: 'Permit',
+        identity: 'Identity',
+        age: 'Age'
+    };
+    var screenFadeDuration = 280;
+
+    function shouldCorrectScroll() {
+        return window.scrollY > 120;
+    }
+
+    function setLock(on) {
+        document.body.classList.toggle('lock-scroll', on);
+        document.documentElement.classList.toggle('lock-scroll', on);
+    }
+
+    function stopVerifyTimer() {
+        if (verifyTimerInterval) {
+            clearInterval(verifyTimerInterval);
+            verifyTimerInterval = null;
+        }
+    }
+
+    // Restarts the 2-minute countdown from scratch every time the verify
+    // screen is entered, matching the original "fresh page load = fresh
+    // timer" behaviour.
+    function startVerifyTimer() {
+        stopVerifyTimer();
+        var timeLeft = 120;
+        var timerEl = document.querySelector('#screen-verify [data-timer]');
+        function render() {
+            var m = Math.floor(timeLeft / 60);
+            var s = timeLeft % 60;
+            timerEl.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+        }
+        render();
+        verifyTimerInterval = setInterval(function () {
+            timeLeft--;
+            render();
+            if (timeLeft <= 0) stopVerifyTimer();
+        }, 1000);
+    }
+
+    // Re-triggers the slide-up entrance every time the verify screen
+    // becomes active.
+    function replaySlideUp() {
+        var wrapper = document.querySelector('#screen-verify .page-wrapper');
+        wrapper.classList.remove('slide-up');
+        wrapper.style.transform = 'translateY(100%)';
+        void wrapper.offsetWidth; // force reflow so the animation can restart
+        wrapper.classList.add('slide-up');
+    }
+
+    // Resets the landing screen back to its neutral (non-slid-out)
+    // position whenever it becomes active again, so returning via the
+    // back arrow doesn't show it mid-slide.
+    function resetLanding() {
+        var landing = document.getElementById('screen-landing');
+        landing.style.transition = 'none';
+        landing.style.transform = 'translateX(0)';
+    }
+
+    function isSegmentTarget(name) {
+        return name === 'permit' || name === 'identity' || name === 'age';
+    }
+
+    function isSegmentScreen(screen) {
+        return screen && /^screen-(permit|identity|age)$/.test(screen.id);
+    }
+
+    function getVisibleSegmentButton(name) {
+        var screen = app.querySelector('.screen.active');
+        if (!screen || !/^screen-(permit|identity|age)$/.test(screen.id)) return null;
+        return screen ? screen.querySelector('.btn-' + name) : null;
+    }
+
+    function positionIndicator(button, instant) {
+        if (!button) {
+            segmentedOverlay.classList.remove('is-ready');
+            return;
+        }
+
+        var container = button.closest('.image-container');
+        if (!container || !button.offsetWidth || !button.offsetHeight) {
+            segmentedOverlay.classList.remove('is-ready');
+            return;
+        }
+
+        if (segmentedOverlay.parentNode !== container) {
+            container.appendChild(segmentedOverlay);
+        }
+
+        segmentedOverlay.classList.toggle('is-instant', !!instant);
+        segmentedOverlay.style.setProperty('--indicator-x', (button.offsetLeft - 4) + 'px');
+        segmentedOverlay.style.setProperty('--indicator-y', (button.offsetTop + 3) + 'px');
+        segmentedOverlay.style.setProperty('--indicator-width', (button.offsetWidth + 6) + 'px');
+        segmentedOverlay.style.setProperty('--indicator-height', (button.offsetHeight - 3) + 'px');
+        segmentedOverlay.style.setProperty('--indicator-font-size', Math.max(12, Math.min(16, button.offsetHeight * 0.38)) + 'px');
+        indicatorLabel.textContent = indicatorLabels[indicatorTarget] || '';
+        segmentedOverlay.classList.add('is-ready');
+
+        if (instant) {
+            requestAnimationFrame(function () {
+                segmentedOverlay.classList.remove('is-instant');
+            });
+        }
+    }
+
+    function updateIndicator(instant) {
+        if (indicatorFrame) cancelAnimationFrame(indicatorFrame);
+        indicatorFrame = requestAnimationFrame(function () {
+            indicatorFrame = null;
+            positionIndicator(getVisibleSegmentButton(indicatorTarget), instant);
+        });
+    }
+
+    function prepareLeavingScreen(screen) {
+        var rect = screen.getBoundingClientRect();
+        screen.classList.remove('active', 'entering');
+        screen.classList.add('leaving');
+        screen.style.position = 'absolute';
+        screen.style.top = (rect.top + window.scrollY) + 'px';
+        screen.style.left = '0';
+        screen.style.width = '100%';
+        screen.style.zIndex = '1';
+    }
+
+    function clearLeavingScreen(screen) {
+        screen.classList.remove('active', 'entering', 'leaving');
+        screen.style.position = '';
+        screen.style.top = '';
+        screen.style.left = '';
+        screen.style.width = '';
+        screen.style.zIndex = '';
+    }
+
+    function switchScreen(name) {
+        var current = app.querySelector('.screen.active');
+        var next = document.getElementById('screen-' + name);
+        if (!next || next === current) return;
+        var softSwap = isSegmentTarget(name) && isSegmentScreen(current);
+
+        if (current && softSwap) {
+            prepareLeavingScreen(current);
+            setTimeout(function () { clearLeavingScreen(current); }, screenFadeDuration + 20);
+        } else if (current) {
+            current.classList.remove('active', 'entering');
+        }
+        if (current && current.id === 'screen-verify') stopVerifyTimer();
+
+        if (name === 'landing') resetLanding();
+
+        next.classList.add('active', 'entering');
+        setTimeout(function () { next.classList.remove('entering'); }, screenFadeDuration);
+
+        setLock(name === 'landing' || name === 'verify' || name === 'passcode');
+
+        if (name === 'verify') {
+            replaySlideUp();
+            startVerifyTimer();
+        }
+    }
+
+    // ===== Passcode gate logic =====
+    // Dummy PIN check: any 6 taps unlock the app, matching the mock
+    // nature of this screen. Swap unlockApp()'s condition for a real
+    // check whenever this is wired to an actual credential.
+    (function () {
+        var PIN_LENGTH = 6;
+        var entered = 0;
+        var pcDots = Array.from(document.querySelectorAll('.pc-dot'));
+        var pcNumberKeys = Array.from(document.querySelectorAll('.pc-key[data-pc-num]'));
+        var pcBackspaceBtn = document.getElementById('pc-backspace-btn');
+        var pcForgotBtn = document.getElementById('pc-forgot-btn');
+
+        function updateDots() {
+            pcDots.forEach(function (dot, i) {
+                dot.classList.toggle('filled', i < entered);
+            });
+            pcBackspaceBtn.disabled = entered === 0;
+        }
+
+        function pressEffect(el) {
+            el.classList.add('pressed');
+            setTimeout(function () { el.classList.remove('pressed'); }, 120);
+        }
+
+        function unlockApp() {
+            indicatorTarget = 'permit';
+            switchScreen('landing');
+        }
+
+        function handleDigit(el) {
+            if (entered >= PIN_LENGTH) return;
+            pressEffect(el);
+            entered += 1;
+            updateDots();
+            if (entered === PIN_LENGTH) {
+                setTimeout(unlockApp, 200);
+            }
+        }
+
+        pcNumberKeys.forEach(function (key) {
+            key.addEventListener('click', function () { handleDigit(key); });
+        });
+
+        pcBackspaceBtn.addEventListener('click', function () {
+            if (entered === 0) return;
+            pressEffect(pcBackspaceBtn);
+            entered -= 1;
+            updateDots();
+        });
+
+        pcForgotBtn.addEventListener('click', function () {
+            pressEffect(pcForgotBtn);
+        });
+
+        updateDots();
+    })();
+
+    // Landing screen's button keeps its original working slide-out
+    // motion, then switches screen in-app instead of navigating.
+    document.querySelector('[data-enter]').addEventListener('click', function (e) {
+        e.preventDefault();
+        var landing = document.getElementById('screen-landing');
+        landing.style.transition = 'transform 0.5s ease';
+        landing.style.transform = 'translateX(-100vw)';
+        setTimeout(function () {
+            indicatorTarget = 'permit';
+            switchScreen('permit');
+            updateIndicator(true);
+        }, 500);
+    });
+
+    // All other in-app buttons
+   app.querySelectorAll('[data-target]').forEach(function (link) {
+    link.addEventListener('click', function (e) {
+        e.preventDefault();
+
+        var target = link.getAttribute('data-target');
+        if (isSegmentTarget(target)) indicatorTarget = target;
+
+        function doSwitch() {
+            switchScreen(target);
+            updateIndicator(false);
+        }
+
+        // only fix scroll if user is actually scrolled down
+        if (window.scrollY > 120) {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+
+            setTimeout(doSwitch, 250);
+        } else {
+            doSwitch();
+        }
+    });
+});
+
+    // Back arrows now return to the landing screen in-app, instead of a
+    // real navigation to index.html — this was the other place a full
+    // page load could happen and trigger the Safari-chrome flash.
+    app.querySelectorAll('[data-back]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            switchScreen('landing');
+            updateIndicator(true);
+        });
+    });
+
+    app.querySelectorAll('[data-close]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            indicatorTarget = 'permit';
+            switchScreen('permit');
+            updateIndicator(false);
+        });
+    });
+
+    window.addEventListener('resize', function () { updateIndicator(true); });
+    updateIndicator(true);
+
+    document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+    document.addEventListener('gesturechange', function (e) { e.preventDefault(); });
+    document.addEventListener('gestureend', function (e) { e.preventDefault(); });
+})();
+</script>
+</body>
+</html>
