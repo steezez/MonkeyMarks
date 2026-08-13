@@ -13,7 +13,47 @@
 <style>
 
     @font-face {
-    font-family: "SatoshiBold";
+    font-family: "SatoshiBold";app.querySelectorAll('[data-close]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        var verifyScreen = document.getElementById('screen-verify');
+        var permitScreen = document.getElementById('screen-permit');
+
+        // Reveal permit right now, underneath — it needs to already be
+        // visible so it shows through as verify physically slides off it.
+        permitScreen.classList.add('active');
+        indicatorTarget = 'permit';
+        updateIndicator(true);
+
+        // Pin verify as one solid full-screen layer on top of permit, so
+        // the transform moves the ENTIRE screen — header, QR, timer, all
+        // of it — as a single slab, not just the inner content.
+        verifyScreen.style.position = 'fixed';
+        verifyScreen.style.top = '0';
+        verifyScreen.style.left = '0';
+        verifyScreen.style.width = '100%';
+        verifyScreen.style.height = '100%';
+        verifyScreen.style.zIndex = '500';
+        verifyScreen.style.transition = 'none';
+        verifyScreen.style.transform = 'translateY(0)';
+        void verifyScreen.offsetWidth; // force reflow before animating
+
+        verifyScreen.style.transition = 'transform 0.45s cubic-bezier(.2,.8,.2,1)';
+        verifyScreen.style.transform = 'translateY(100%)';
+
+        setTimeout(function () {
+            stopVerifyTimer();
+            setLock(false);
+
+            verifyScreen.classList.remove('active', 'entering', 'entering-slide-left');
+            verifyScreen.removeAttribute('style');
+
+            var wrapper = verifyScreen.querySelector('.page-wrapper');
+            wrapper.removeAttribute('style');
+            // leave 'slide-up' class on the wrapper as-is, so it's already
+            // in its resting visible position next time verify opens
+        }, 450);
+    });
+});
     src: url("./Satoshi-Bold.otf") format("opentype");
 
          @font-face {
@@ -39,6 +79,23 @@ html, body {
 }
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ===== Refresh Timestamp Bar ===== */
+/* ===== Refresh Timestamp Bar ===== */
+.refresh-bar {
+    background-color: #ffffff;
+    color: #3c4b60;
+    font-size: 11px;
+    font-weight: 400;
+    text-align: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.refresh-bar strong {
+    font-weight: 600;
 }
 
 /* ===== Screen switcher ===== */
@@ -76,7 +133,18 @@ body {
     from { opacity: 1; filter: saturate(1); }
     to { opacity: 0; filter: saturate(.96); }
 }
+/* ===== Slower, Smoother Slide In ===== */
+.screen.entering-slide-left {
+    position: relative;
+    z-index: 2;
+    /* 0.6s duration with a very smooth ease-out curve */
+    animation: screenSlideInLeft 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
 
+@keyframes screenSlideInLeft {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
 /* Locks scroll while the landing screen OR the verify screen is active */
 body.lock-scroll, html.lock-scroll {
     overflow: hidden;
@@ -85,6 +153,63 @@ body.lock-scroll, html.lock-scroll {
     width: 100%;
     overscroll-behavior: none;
     touch-action: none;
+}
+
+/* ===== Loading Screen ===== */
+#screen-loader {
+    background-color: #F7F9F7;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: none; 
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+#screen-loader.active {
+    display: flex !important;
+}
+.loader-spinner {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    /* Updated to a darker, richer green (#15803D) */
+   background: conic-gradient(from 180deg, rgba(118, 198, 101, 0) 0%, rgba(118, 198, 101, 1) 100%);
+    -webkit-mask: radial-gradient(farthest-side, transparent 17px, #000 18px);
+    mask: radial-gradient(farthest-side, transparent 17px, #000 18px);
+    animation: spin 0.75s linear infinite;
+}
+#screen-splash {
+    background-color: #F7F9F7;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    align-items: center;
+    justify-content: center;
+    z-index: 10001;
+    overflow: hidden;
+}
+#screen-splash.active {
+    display: flex; /* higher specificity than .screen.active so this actually applies */
+}
+.splash-wrap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+.splash-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.splash-wrap .loader-spinner {
+    position: absolute;
+    top: 50%;
+    left: 46%;
+    transform: translate(-50%, -50%);
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 /* ===== #screen-passcode (new front gate) ===== */
@@ -115,17 +240,18 @@ body.lock-scroll, html.lock-scroll {
 }
 #screen-passcode .pc-title {
     font-family: "LeagueSpartan", -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: 28px;
+    font-size: 21px; /* Reduced so long titles fit on narrow mobile screens */
     font-weight: 800;
     color: #111;
     text-align: center;
     margin: 0 0 32px;
     line-height: 1.25;
     flex-shrink: 0;
+    white-space: nowrap; /* Forces text to stay on 1 single line */
 }
 #screen-passcode .pc-dots {
     display: flex;
-    gap: 20px;
+    gap: 30px;
     margin-bottom: auto;
     flex-shrink: 0;
 }
@@ -133,7 +259,7 @@ body.lock-scroll, html.lock-scroll {
     width: 26px;
     height: 26px;
     border-radius: 50%;
-    border: 2px solid #111;
+    border: 1px solid #111;
     background: transparent;
     transition: background-color 120ms ease;
 }
@@ -155,17 +281,18 @@ body.lock-scroll, html.lock-scroll {
     background: none;
     border: none;
     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: 30px;
-    font-weight: 700;
+    font-size: 22px; /* Smaller digit size (down from 30px) */
+    font-weight: 400; /* Thinner weight (down from ) */
     color: #111;
-    padding: 14px 0;
+    padding: 10px 0;
     cursor: pointer;
     border-radius: 12px;
     transition: opacity 120ms ease;
     -webkit-user-select: none;
     user-select: none;
-       -webkit-tap-highlight-color: transparent;
+    -webkit-tap-highlight-color: transparent;
     outline: none;
+
 }
 #screen-passcode .pc-key:active,
 #screen-passcode .pc-key.pressed {
@@ -217,7 +344,13 @@ body.lock-scroll, html.lock-scroll {
     z-index: 10;
     text-decoration: none;
 }
-
+/* Keep GPU layers warm to eliminate transition stutter */
+.screen {
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform: translateZ(0); /* Forces GPU compositing */
+}
 /* ===== #screen-permit (was main1.html) ===== */
 #screen-permit .header {
     position: sticky;
@@ -226,13 +359,16 @@ body.lock-scroll, html.lock-scroll {
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     z-index: 100;
     padding: 18px 0;
+    box-shadow: none; /* Removed the shadow */
+    transition: box-shadow 0.2s ease; /* Added smooth fade */
 }
 #screen-permit .back-arrow {
     position: absolute;
     left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
     color: #283442;
     cursor: pointer;
     display: flex;
@@ -283,8 +419,13 @@ body.lock-scroll, html.lock-scroll {
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     z-index: 100;
+    box-shadow: none; /* Removed the shadow */
+    transition: box-shadow 0.2s ease; /* Added smooth fade */
+}
+   .header.is-scrolled {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+
 }
 #screen-identity .back-arrow, #screen-age .back-arrow {
     position: absolute;
@@ -325,7 +466,6 @@ body.lock-scroll, html.lock-scroll {
 #screen-identity .btn-age,      #screen-age .btn-age      { left: 66%;  top: 48%; width: 28%; height: 4.6%; }
 #screen-identity .btn-new,      #screen-age .btn-new      { left: 58.5%; top: 33.5%; width: 30%; height: 4.5%; }
 
-/* ===== #screen-verify (was page4.html) ===== */
 #screen-verify .page-wrapper {
     width: 100%;
     height: 100%;
@@ -334,7 +474,16 @@ body.lock-scroll, html.lock-scroll {
 #screen-verify .page-wrapper.slide-up {
     animation: slideUp 0.45s ease forwards;
 }
-@keyframes slideUp { to { transform: translateY(0); } }
+@keyframes slideUp {
+    to { transform: translateY(0); }
+}
+#screen-verify .page-wrapper.slide-down {
+    animation: slideDown 0.45s ease forwards;
+}
+@keyframes slideDown {
+    from { transform: translateY(0); }
+    to { transform: translateY(100%); }
+}
 #screen-verify .header {
     width: 100%;
     background: white;
@@ -358,11 +507,11 @@ body.lock-scroll, html.lock-scroll {
 }
 #screen-verify .timer {
     position: absolute;
-    top: 418px;
+    top: 430px;
     left: 64%;
     transform: translateX(-50%);
     font-size: 24px;
-    font-weight: 700;
+    font-weight: bold;
     color: #1f2025;
     z-index: 50;
 }
@@ -403,9 +552,9 @@ body.lock-scroll, html.lock-scroll {
     background: #253544;
     transform: translate3d(var(--indicator-x, 0px), var(--indicator-y, 0px), 0);
     transition:
-        transform 330ms cubic-bezier(.2,.8,.2,1),
-        width 330ms cubic-bezier(.2,.8,.2,1),
-        height 330ms cubic-bezier(.2,.8,.2,1);
+        transform 780ms cubic-bezier(.2,.8,.2,1),
+        width 780ms cubic-bezier(.2,.8,.2,1),
+        height 780ms cubic-bezier(.2,.8,.2,1);
     will-change: transform, width, height;
 }
 .indicator-pill {
@@ -439,13 +588,28 @@ body.lock-scroll, html.lock-scroll {
 
 <div id="app">
 
+  <!-- ===== screen-loader ===== -->
+  <div class="screen" id="screen-loader">
+    <div class="loader-spinner"></div>
+  </div>
+
   <!-- ===== screen-passcode (new front gate, shown first) ===== -->
-  <div class="screen active" id="screen-passcode">
+  <div class="screen active" id="screen-splash">
+    <div class="splash-wrap">
+        <img src="idsplash1.png" alt="" class="splash-image">
+        <div class="loader-spinner"></div>
+    </div>
+  </div>
+
+  <!-- ===== screen-passcode (new front gate, now shown after splash) ===== -->
+  <div class="screen" id="screen-passcode">
     <div class="pc-wrap">
       <div class="pc-lock-wrap">
         <svg class="pc-lock-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Locked padlock">
-          <path d="M32 42 V32 a18 18 0 0 1 36 0 v10" fill="none" stroke="#3DBE3D" stroke-width="9" stroke-linecap="round"/>
-          <rect x="18" y="40" width="64" height="46" rx="6" fill="#3DBE3D"/>
+          <!-- Shortened shackle with exact color #42b12a -->
+       <path d="M32 42 V40 a18 18 0 0 1 36 0 v2" fill="none" stroke="#42b12a" stroke-width="9" stroke-linecap="round"/>-linecap="round"/>
+          <!-- Body made nearly square (rx="1.5") -->
+          <rect x="18" y="40" width="64" height="46" rx="1.5" fill="#42b12a"/>
           <circle cx="50" cy="60" r="7" fill="#1E2A38"/>
           <path d="M46 65 L42 78 H58 L54 65 Z" fill="#1E2A38"/>
         </svg>
@@ -505,16 +669,17 @@ body.lock-scroll, html.lock-scroll {
         </div>
         <div class="header-title">View details</div>
     </div>
+    <div class="refresh-bar" data-refresh-time>Last refreshed: Wed 29 Jul 2026 9:46pm</div>
     <div class="content">
         <div class="image-container">
-            <img src="Morgan1.png" alt="">
+            <img src="Morgan1.jpg" alt="">
             <a href="#" class="invisible-button btn-permit"   data-target="permit"></a>
             <a href="#" class="invisible-button btn-identity" data-target="identity"></a>
             <a href="#" class="invisible-button btn-age"      data-target="age"></a>
             <a href="#" class="invisible-button btn-new"      data-target="verify"></a>
         </div>
         <div class="image-container">
-            <img src="Morgan4.png" alt="">
+            <img src="Morgan2.jpg" alt="">
         </div>
     </div>
   </div>
@@ -529,9 +694,10 @@ body.lock-scroll, html.lock-scroll {
         </div>
         <div class="header-title">View details</div>
     </div>
+    <div class="refresh-bar" data-refresh-time>Last refreshed: Wed 29 Jul 2026 9:46pm</div>
     <div class="content">
         <div class="image-container">
-            <img src="Morgan2.png" alt="">
+            <img src="Morgan3.jpg" alt="">
             <a href="#" class="invisible-button btn-permit"   data-target="permit"></a>
             <a href="#" class="invisible-button btn-identity" data-target="identity"></a>
             <a href="#" class="invisible-button btn-age"      data-target="age"></a>
@@ -550,9 +716,10 @@ body.lock-scroll, html.lock-scroll {
         </div>
         <div class="header-title">View details</div>
     </div>
+    <div class="refresh-bar" data-refresh-time>Last refreshed: Wed 29 Jul 2026 9:46pm</div>
     <div class="content">
         <div class="image-container">
-            <img src="Morgan3.png" alt="">
+            <img src="Morgan4.jpg" alt="">
             <a href="#" class="invisible-button btn-permit"   data-target="permit"></a>
             <a href="#" class="invisible-button btn-identity" data-target="identity"></a>
             <a href="#" class="invisible-button btn-age"      data-target="age"></a>
@@ -591,8 +758,33 @@ body.lock-scroll, html.lock-scroll {
 </div>
 
 <script>
+
+     // Pre-decode all images in the background on startup
+function preloadImages() {
+    var imgs = document.querySelectorAll('img');
+    imgs.forEach(function(img) {
+        if (img.src) {
+            var tempImg = new Image();
+            tempImg.src = img.src;
+            if (tempImg.decode) {
+                tempImg.decode().catch(function() { /* ignore fallback errors */ });
+            }
+        }
+    });
+}
+
+// Run it immediately when page loads
+preloadImages();
+
+// Your splash timer
+setTimeout(function () {
+    document.getElementById('screen-splash').classList.remove('active');
+    document.getElementById('screen-passcode').classList.add('active');
+}, 800);
+     
 (function () {
     var app = document.getElementById('app');
+
     var verifyTimerInterval = null;
     var segmentedOverlay = document.querySelector('.segmented-overlay');
     var indicatorLabel = segmentedOverlay.querySelector('.indicator-label');
@@ -604,6 +796,41 @@ body.lock-scroll, html.lock-scroll {
         age: 'Age'
     };
     var screenFadeDuration = 280;
+
+    // Generates the timestamp dynamically matching "Last refresh: Wed 29 Jul 2026 9:46pm"
+ function getFormattedRefreshTime() {
+        var now = new Date();
+        var days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        
+        var dayName = days[now.getDay()];
+        var dayNum = now.getDate();
+        var monthName = months[now.getMonth()];
+        var year = now.getFullYear();
+        
+        var hours = now.getHours();
+        var minutes = now.getMinutes();
+        var ampm = hours >= 12 ? 'pm' : 'am';
+        
+        hours = hours % 12;
+        if (hours === 0) hours = 12;
+        var minutesStr = minutes < 10 ? '0' + minutes : minutes;
+        
+        // Wrap the prefix in a <strong> tag
+        return '<strong>Last refreshed:</strong> ' + dayName + ' ' + dayNum + ' ' + monthName + ' ' + year + ' ' + hours + ':' + minutesStr + ampm;
+    }
+
+    function initRefreshTime() {
+        var refreshText = getFormattedRefreshTime();
+        var refreshBars = document.querySelectorAll('[data-refresh-time]');
+        refreshBars.forEach(function (bar) {
+            // Change from .textContent to .innerHTML to parse the strong tag
+            bar.innerHTML = refreshText; 
+        });
+    }
+
+    // Set the initial time upon loading
+    initRefreshTime();
 
     function shouldCorrectScroll() {
         return window.scrollY > 120;
@@ -643,11 +870,11 @@ body.lock-scroll, html.lock-scroll {
 
     // Re-triggers the slide-up entrance every time the verify screen
     // becomes active.
-    function replaySlideUp() {
+   function replaySlideUp() {
         var wrapper = document.querySelector('#screen-verify .page-wrapper');
-        wrapper.classList.remove('slide-up');
-        wrapper.style.transform = 'translateY(100%)';
-        void wrapper.offsetWidth; // force reflow so the animation can restart
+        wrapper.removeAttribute('style'); // clear any leftover inline transform/transition
+        wrapper.classList.remove('slide-up', 'slide-down');
+        void wrapper.offsetWidth;
         wrapper.classList.add('slide-up');
     }
 
@@ -733,38 +960,73 @@ body.lock-scroll, html.lock-scroll {
         screen.style.width = '';
         screen.style.zIndex = '';
     }
-
-    function switchScreen(name) {
-        var current = app.querySelector('.screen.active');
-        var next = document.getElementById('screen-' + name);
-        if (!next || next === current) return;
-        var softSwap = isSegmentTarget(name) && isSegmentScreen(current);
-
-        if (current && softSwap) {
-            prepareLeavingScreen(current);
-            setTimeout(function () { clearLeavingScreen(current); }, screenFadeDuration + 20);
-        } else if (current) {
-            current.classList.remove('active', 'entering');
+function showLoaderThen(targetScreenName, callback) {
+    var current = app.querySelector('.screen.active');
+    var loader = document.getElementById('screen-loader');
+    
+    // Hide current screen so it's ready behind the loader
+    if (current) current.classList.remove('active', 'entering', 'entering-slide-left');
+    
+    // Show the loader and lock the screen
+    loader.classList.add('active');
+    setLock(true);
+    
+    setTimeout(function() {
+        loader.classList.remove('active');
+        if (callback) {
+            callback();
+        } else {
+            switchScreen(targetScreenName);
         }
-        if (current && current.id === 'screen-verify') stopVerifyTimer();
+    }, 500);
+}
+   // Add 'slideIn' as the second parameter
+function switchScreen(name) {
+    var current = app.querySelector('.screen.active');
+    var next = document.getElementById('screen-' + name);
+    if (!next || next === current) return;
+    
+    var softSwap = isSegmentTarget(name) && isSegmentScreen(current);
 
-        if (name === 'landing') resetLanding();
+    if (current && softSwap) {
+        prepareLeavingScreen(current);
+        setTimeout(function () { clearLeavingScreen(current); }, screenFadeDuration + 20);
+    } else if (current) {
+        current.classList.remove('active', 'entering', 'entering-slide-left');
+    }
+    
+    if (current && current.id === 'screen-verify') stopVerifyTimer();
 
+    if (name === 'landing') resetLanding();
+
+    // ======= EXACT TARGET LOGIC =======
+    // We added 'age' and 'identity' just in case you use those tabs too.
+    // It will NEVER slide on 'landing' or 'passcode' now.
+   var shouldSlide = (name === 'permit' || name === 'age' || name === 'identity') && !softSwap;
+
+    if (shouldSlide) {
+        next.classList.add('active', 'entering-slide-left');
+        setTimeout(function () { next.classList.remove('entering-slide-left'); }, 600); // 600ms to match the CSS
+    } else {
+        // Normal Fade for Landing, Passcode, etc.
         next.classList.add('active', 'entering');
         setTimeout(function () { next.classList.remove('entering'); }, screenFadeDuration);
-
-        setLock(name === 'landing' || name === 'verify' || name === 'passcode');
-
-        if (name === 'verify') {
-            replaySlideUp();
-            startVerifyTimer();
-        }
     }
+    // ==================================
 
+    setLock(name === 'landing' || name === 'verify' || name === 'passcode');
+
+    if (name === 'verify') {
+        replaySlideUp();
+        startVerifyTimer();
+    }
+    
+    if (isSegmentTarget(name)) {
+        indicatorTarget = name;
+        updateIndicator(false);
+    }
+}
     // ===== Passcode gate logic =====
-    // Dummy PIN check: any 6 taps unlock the app, matching the mock
-    // nature of this screen. Swap unlockApp()'s condition for a real
-    // check whenever this is wired to an actual credential.
     (function () {
         var PIN_LENGTH = 6;
         var entered = 0;
@@ -787,7 +1049,7 @@ body.lock-scroll, html.lock-scroll {
 
         function unlockApp() {
             indicatorTarget = 'permit';
-            switchScreen('landing');
+            showLoaderThen('landing');
         }
 
         function handleDigit(el) {
@@ -818,65 +1080,104 @@ body.lock-scroll, html.lock-scroll {
         updateDots();
     })();
 
-    // Landing screen's button keeps its original working slide-out
-    // motion, then switches screen in-app instead of navigating.
+    // Landing screen's button triggers the 0.5-second loader
+    // then switches screen in-app instead of navigating.
     document.querySelector('[data-enter]').addEventListener('click', function (e) {
         e.preventDefault();
-        var landing = document.getElementById('screen-landing');
-        landing.style.transition = 'transform 0.5s ease';
-        landing.style.transform = 'translateX(-100vw)';
-        setTimeout(function () {
+        showLoaderThen('permit', function() {
             indicatorTarget = 'permit';
             switchScreen('permit');
             updateIndicator(true);
-        }, 500);
+        });
     });
 
     // All other in-app buttons
-   app.querySelectorAll('[data-target]').forEach(function (link) {
-    link.addEventListener('click', function (e) {
-        e.preventDefault();
+    app.querySelectorAll('[data-target]').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
 
-        var target = link.getAttribute('data-target');
-        if (isSegmentTarget(target)) indicatorTarget = target;
+            var target = link.getAttribute('data-target');
+            if (isSegmentTarget(target)) indicatorTarget = target;
 
-        function doSwitch() {
-            switchScreen(target);
-            updateIndicator(false);
-        }
+            function doSwitch() {
+                switchScreen(target);
+                updateIndicator(false);
+            }
+if (window.scrollY > 0) {
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
 
-        // only fix scroll if user is actually scrolled down
-        if (window.scrollY > 120) {
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
-            });
+                setTimeout(doSwitch, 250);
+            } else {
+                doSwitch();
+            }
+        });
+    });
 
-            setTimeout(doSwitch, 250);
-        } else {
-            doSwitch();
-        }
+app.querySelectorAll('[data-back]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        switchScreen('landing');
+        updateIndicator(true);
     });
 });
 
-    // Back arrows now return to the landing screen in-app, instead of a
-    // real navigation to index.html — this was the other place a full
-    // page load could happen and trigger the Safari-chrome flash.
-    app.querySelectorAll('[data-back]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            switchScreen('landing');
-            updateIndicator(true);
+app.querySelectorAll('[data-close]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        var verifyScreen = document.getElementById('screen-verify');
+        var permitScreen = document.getElementById('screen-permit');
+
+        // Reveal permit right now, underneath — it needs to already be
+        // visible so it shows through as verify physically slides off it.
+        permitScreen.classList.add('active');
+        indicatorTarget = 'permit';
+        updateIndicator(true);
+
+        // Pin verify as one solid full-screen layer on top of permit, so
+        // the transform moves the ENTIRE screen — header, QR, timer, all
+        // of it — as a single slab, not just the inner content.
+        verifyScreen.style.position = 'fixed';
+        verifyScreen.style.top = '0';
+        verifyScreen.style.left = '0';
+        verifyScreen.style.width = '100%';
+        verifyScreen.style.height = '100%';
+        verifyScreen.style.zIndex = '500';
+        verifyScreen.style.transition = 'none';
+        verifyScreen.style.transform = 'translateY(0)';
+        void verifyScreen.offsetWidth; // force reflow before animating
+
+        verifyScreen.style.transition = 'transform 0.45s cubic-bezier(.2,.8,.2,1)';
+        verifyScreen.style.transform = 'translateY(100%)';
+
+        setTimeout(function () {
+            stopVerifyTimer();
+            setLock(false);
+
+            verifyScreen.classList.remove('active', 'entering', 'entering-slide-left');
+            verifyScreen.removeAttribute('style');
+
+            var wrapper = verifyScreen.querySelector('.page-wrapper');
+            wrapper.removeAttribute('style');
+            // leave 'slide-up' class on the wrapper as-is, so it's already
+            // in its resting visible position next time verify opens
+        }, 450);
+    });
+});
+// Watch for scrolling to toggle the header shadow
+    window.addEventListener('scroll', function () {
+        var headers = document.querySelectorAll('.header');
+        // If scrolled more than 5 pixels down, add the shadow
+        var isScrolled = window.scrollY > 5; 
+        
+        headers.forEach(function (header) {
+            if (isScrolled) {
+                header.classList.add('is-scrolled');
+            } else {
+                header.classList.remove('is-scrolled');
+            }
         });
     });
-
-    app.querySelectorAll('[data-close]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            indicatorTarget = 'permit';
-            switchScreen('permit');
-            updateIndicator(false);
-        });
-    });
-
     window.addEventListener('resize', function () { updateIndicator(true); });
     updateIndicator(true);
 
